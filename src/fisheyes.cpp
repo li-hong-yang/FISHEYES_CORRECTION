@@ -12,73 +12,29 @@
 #include <sys/mman.h> //mmap函数映射对象到内存的头文件
 #include <malloc.h> //内存申请函数
 #include "opencv2/opencv.hpp" //opencv库
-#include <iostream>
-#include <fstream>
-#include <boost/filesystem.hpp>
-
+#include "utils.h"
+#include <stdlib.h>
+#include <opencv2/imgproc/types_c.h>
 using namespace std;
 using namespace cv;
-namespace fs = boost::filesystem;
 
 
-int get_filenames(const std::string& dir, std::vector<std::string>& filenames)
-{
-    fs::path path(dir);
-    if (!fs::exists(path))
-    {
-        return -1;
-    }
- 
-    fs::directory_iterator end_iter;
-    for (fs::directory_iterator iter(path); iter!=end_iter; ++iter)
-    {
-        if (fs::is_regular_file(iter->status()))
-        {
-            filenames.push_back(iter->path().string());
-        }
- 
-        if (fs::is_directory(iter->status()))
-        {
-            get_filenames(iter->path().string(), filenames);
-        }
-    }
- 
-    return filenames.size();
-}
 
-//异常信号处理
-void signal_handle(int signo)
-{
-    printf("force exit signo %d !!!\n",signo);
-    exit(0);
-}
-void signal_exit_handler(int sig)
-{
-    exit(0);
-}
-void signal_crash_handler(int sig)
-{
-    exit(-1);
-}
 
 /*********************************
 程序入口
 **********************************/
 int main (int argc, char *argv[])
 {
-    //异常信号处理
-    signal(SIGINT, signal_handle);
-    signal(SIGTERM, signal_exit_handler);
-    //signal(SIGINT, signal_exit_handler);
-    signal(SIGPIPE, SIG_IGN);
-    signal(SIGBUS, signal_crash_handler);
-    signal(SIGSEGV, signal_crash_handler);
-    signal(SIGFPE, signal_crash_handler);
-    signal(SIGABRT, signal_crash_handler);
+
+    string path = "../data/img";
+    vector<string> filenames;
+    get_filenames(path,filenames);
+
 
     //处理图像
     int j = 1;
-    int img_num = 20; //标定图片张数
+    int img_num = filenames.size(); //标定图片张数
     const int image_count = img_num;
     int count = 0; //保存所有图片角点数量
     int successImageNum = 0;	//成功提取角点的棋盘图数量	
@@ -86,40 +42,41 @@ int main (int argc, char *argv[])
     vector<Mat>  image_Seq;
     vector<vector<Point2f>>  corners_Seq; //保存每张图片识别的角点
     //用图片标定
-    while(img_num)
-    {           string str_rgb = "../data/img/"+to_string(j)+".jpg";
-                Mat img_rgb = imread(str_rgb);  //rgb图像
-                Mat img_rgbgray;  //灰度图
-                cvtColor(img_rgb, img_rgbgray, CV_RGB2GRAY); //将BGRA图像转换为灰度图
-                //从拍摄的图片中提取角点并进行亚像素精确化
-                vector<Point2f> corners; //检测到的角点
-                printf("findChessboardCorners....\n");
-                bool patternfound = findChessboardCorners(img_rgb, board_size, corners, CALIB_CB_ADAPTIVE_THRESH + CALIB_CB_NORMALIZE_IMAGE + CALIB_CB_FAST_CHECK);
-		        if (!patternfound)
-			        printf("can not find chessboard corners!\n");
-                else
-                {
-                    // 亚像素精确化 
-			        cornerSubPix(img_rgbgray, corners, Size(11, 11), Size(-1, -1), TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
-                    //保存识别的角点
-                    count = count + corners.size();
-                    successImageNum = successImageNum + 1;
-                    corners_Seq.push_back(corners); 
-                    image_Seq.push_back(img_rgb);
-                    printf("findChessboardCorners success!\n");
-                    //将像素点绘制到图上
-                    Mat img_circle = img_rgb.clone();
-                    printf("draw circle on image  %d!\n", j);
-                    for(unsigned int j=0; j < corners.size(); j++)
-                    {
-                        circle(img_circle, corners[j], 10, Scalar(0, 0, 255), 2, 8, 0);
-                    }
-                    string str_rgb = "../data/corners/"+to_string(j)+".jpg";
-                    imwrite(str_rgb, img_circle);
-                    j++;
-                    img_num--;
-                }
+    for (int i=0;i<img_num;++i)
+    {   
+        string str_rgb = filenames[i];
+        Mat img_rgb = imread(str_rgb);  //rgb图像
+        Mat img_rgbgray;  //灰度图
+        cvtColor(img_rgb, img_rgbgray, CV_BGRA2GRAY); //将BGRA图像转换为灰度图
+        //从拍摄的图片中提取角点并进行亚像素精确化
+        vector<Point2f> corners; //检测到的角点
+        printf("findChessboardCorners....\n");
+        bool patternfound = findChessboardCorners(img_rgb, board_size, corners, CALIB_CB_ADAPTIVE_THRESH + CALIB_CB_NORMALIZE_IMAGE + CALIB_CB_FAST_CHECK);
+        if (!patternfound)
+            printf("can not find chessboard corners!\n");
+        else
+        {
+            // 亚像素精确化 
+            cornerSubPix(img_rgbgray, corners, Size(11, 11), Size(-1, -1), TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
+            //保存识别的角点
+            count = count + corners.size();
+            successImageNum = successImageNum + 1;
+            corners_Seq.push_back(corners); 
+            image_Seq.push_back(img_rgb);
+            printf("findChessboardCorners success!\n");
+            //将像素点绘制到图上
+            Mat img_circle = img_rgb.clone();
+            printf("draw circle on image  %d!\n", j);
+            for(unsigned int j=0; j < corners.size(); j++)
+            {
+                circle(img_circle, corners[j], 10, Scalar(0, 0, 255), 2, 8, 0);
+            }
+            string str_rgb = "../data/corners/"+to_string(j)+".jpg";
+            imwrite(str_rgb, img_circle);
+            j++;
+            img_num--;
         }
+    }
     
     //鱼眼相机定标
     printf("fisheye camera conrners 2d to 3d ....\n");
@@ -174,7 +131,7 @@ int main (int argc, char *argv[])
 	fclose(camParam);
     printf("save data file : %s success!\n", datFileName.c_str());
     //评价定标结果
-    ofstream fout("/root/img/caliberation_result.txt");  //    保存定标结果的文件    
+    ofstream fout("../data/caliberation_result.txt");  //    保存定标结果的文件    
     cout << "开始评价定标结果………………" << endl;
 	double total_err = 0.0;                   // 所有图像的平均误差的总和 
 	double err = 0.0;                        // 每幅图像的平均误差 
@@ -200,6 +157,7 @@ int main (int argc, char *argv[])
 		cout << "第" << i + 1 << "幅图像的平均误差" << err << "像素" << endl;
         fout << "第" << i + 1 << "幅图像的平均误差" << err << "像素" << endl;
 	}
+    cout << "==============" << endl;
 	cout << "总体平均误差" << total_err / image_count << "像素" << endl;
     fout << "总体平均误差" << total_err / image_count << "像素" << endl << endl;
 	cout << "评价完成" << endl;

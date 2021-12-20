@@ -8,7 +8,7 @@
             "name": "g++ - Build and debug active file",
             "type": "cppdbg",
             "request": "launch",
-            "program": "/home/hyli/project/cuda/flying-attitude-pred/build/singnal",
+            "program": "/root/project/FISHEYES_CORRECTION/build/lp_recognize",
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/build",
             "environment": [],
